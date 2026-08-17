@@ -1,0 +1,4 @@
+-- Add any seed data you want to pre-populate in your local database here.
+-- Example:
+-- INSERT INTO auth.users (id, email, password) VALUES ('uuid', 'user@example.com', 'hashed_pw');
+-- INSERT INTO public.profiles (id, full_name, email, role) VALUES ('uuid', 'Test User', 'user@example.com', 'creator');
