@@ -84,8 +84,12 @@ CREATE TRIGGER handle_sbloom_production_submission_updated_at
     EXECUTE FUNCTION public.sbloom_set_production_submission_updated_at();
 
 -- 5. Revoke function privileges
-REVOKE ALL ON FUNCTION public.sbloom_validate_submission_project_owner() FROM PUBLIC;
-REVOKE ALL ON FUNCTION public.sbloom_set_production_submission_updated_at() FROM PUBLIC;
+REVOKE ALL ON FUNCTION
+public.sbloom_validate_submission_project_owner()
+FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION
+public.sbloom_set_production_submission_updated_at()
+FROM PUBLIC, anon, authenticated;
 
 -- 6. Indexes
 CREATE INDEX idx_production_submissions_project_id ON public.production_submissions_studio(project_id);
@@ -96,10 +100,16 @@ CREATE INDEX idx_production_submissions_access_status ON public.production_submi
 ALTER TABLE public.production_submissions_studio ENABLE ROW LEVEL SECURITY;
 
 -- 8. Revoke default access and grant appropriate privileges
-REVOKE ALL ON public.production_submissions_studio FROM PUBLIC, anon, authenticated;
-GRANT SELECT ON public.production_submissions_studio TO authenticated;
+REVOKE ALL
+ON public.production_submissions_studio
+FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT
+ON public.production_submissions_studio
+TO authenticated;
 -- Ensure service_role has only SELECT and INSERT privileges for Phase E2 backend usage
-GRANT SELECT, INSERT ON public.production_submissions_studio TO service_role;
+GRANT SELECT, INSERT
+ON public.production_submissions_studio
+TO service_role;
 
 -- 9. RLS Policies
 CREATE POLICY "Creators can view their own submissions"
