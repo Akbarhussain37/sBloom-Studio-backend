@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'CORS_ALLOWED_ORIGINS'];
+const requiredEnvVars = ['SUPABASE_URL', 'SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'CORS_ALLOWED_ORIGINS'];
 const missing = requiredEnvVars.filter((v) => !process.env[v]);
 
 if (missing.length > 0 && process.env.NODE_ENV !== 'test') {
@@ -14,6 +14,7 @@ const config = {
   supabase: {
     url: process.env.SUPABASE_URL,
     anonKey: process.env.SUPABASE_ANON_KEY,
+    serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
   },
   cors: {
     allowedOrigins: process.env.CORS_ALLOWED_ORIGINS 

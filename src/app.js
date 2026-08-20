@@ -29,8 +29,11 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 
+const productionRoutes = require('./routes/production');
+
 app.use('/api', healthRoutes);
 app.use('/api', authRoutes);
+app.use('/api/production', productionRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

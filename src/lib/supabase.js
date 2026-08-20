@@ -30,7 +30,22 @@ function getAuthClient() {
   });
 }
 
+function createServiceClient() {
+  if (!config.supabase.serviceRoleKey) {
+    throw new Error('Service role key is missing in configuration.');
+  }
+
+  return createClient(config.supabase.url, config.supabase.serviceRoleKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+    }
+  });
+}
+
 module.exports = {
   createUserScopedClient,
-  getAuthClient
+  getAuthClient,
+  createServiceClient
 };
