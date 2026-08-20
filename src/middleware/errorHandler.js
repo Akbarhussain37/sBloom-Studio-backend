@@ -8,13 +8,18 @@ function notFoundHandler(req, res, next) {
 }
 
 function errorHandler(err, req, res, next) {
-  console.error(`[Error] ${err.name || 'Error'}: ${err.message}`);
+  const status = err.status || 500;
 
   let code = err.code || 'INTERNAL_ERROR';
   if (err.type === 'entity.too.large') {
     code = 'PAYLOAD_TOO_LARGE';
   }
-  const status = err.status || 500;
+  if (status === 500) {
+    code = 'INTERNAL_ERROR';
+    console.error(`[Error] Unexpected server error: ${err.name || 'Error'} (${err.code || 'UNKNOWN'})`);
+  } else {
+    console.error(`[Error] ${err.name || 'Error'}: ${err.message}`);
+  }
   
   res.status(status).json({
     error: {

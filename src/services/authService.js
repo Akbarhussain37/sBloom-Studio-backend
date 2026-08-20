@@ -1,7 +1,7 @@
-const { getAuthClient, createUserScopedClient } = require('../lib/supabase');
+const supabaseLib = require('../lib/supabase');
 
 async function verifyTokenAndGetUser(token) {
-  const supabase = getAuthClient();
+  const supabase = supabaseLib.getAuthClient();
   const { data: { user }, error } = await supabase.auth.getUser(token);
   
   if (error || !user) {
@@ -12,14 +12,24 @@ async function verifyTokenAndGetUser(token) {
 }
 
 async function getUserProfile(userId, accessToken) {
-  const userClient = createUserScopedClient(accessToken);
+  const userClient = supabaseLib.createUserScopedClient(accessToken);
   const { data: profile, error } = await userClient
     .from('profile_studio')
     .select('id, role, full_name')
     .eq('id', userId)
     .single();
 
-  if (error || !profile) {
+  if (error) {
+    if (error.code === 'PGRST116') {
+      const profileError = new Error('Profile required');
+      profileError.code = 'PROFILE_REQUIRED';
+      throw profileError;
+    }
+    // Propagate operational errors up to the centralized error handler
+    throw error;
+  }
+
+  if (!profile) {
     const profileError = new Error('Profile required');
     profileError.code = 'PROFILE_REQUIRED';
     throw profileError;

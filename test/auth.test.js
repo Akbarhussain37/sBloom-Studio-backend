@@ -10,6 +10,11 @@ process.env.NODE_ENV = 'test';
 
 // Import the service so we can mock its methods
 const authService = require('../src/services/authService');
+const supabaseLib = require('../src/lib/supabase');
+
+// Save original functions to restore them later
+const originalVerifyTokenAndGetUser = authService.verifyTokenAndGetUser;
+const originalGetUserProfile = authService.getUserProfile;
 
 // Import the app after setting env vars
 const app = require('../src/app');
@@ -18,8 +23,8 @@ const request = supertest(app);
 test.describe('Auth and Health Routes', () => {
   test.afterEach(() => {
     // Restore mocks
-    authService.verifyTokenAndGetUser = require('../src/services/authService').verifyTokenAndGetUser;
-    authService.getUserProfile = require('../src/services/authService').getUserProfile;
+    authService.verifyTokenAndGetUser = originalVerifyTokenAndGetUser;
+    authService.getUserProfile = originalGetUserProfile;
   });
 
   test.it('GET /api/health -> 200', async () => {
@@ -102,6 +107,67 @@ test.describe('Auth and Health Routes', () => {
     };
     
     const res = await request.get('/api/auth/me').set('Authorization', 'Bearer valid-token-no-profile');
+    assert.strictEqual(res.status, 403);
+    assert.strictEqual(res.body.error.code, 'PROFILE_REQUIRED');
+  });
+
+  test.it('Supabase profile lookup returns an operational error -> 500 INTERNAL_ERROR', async () => {
+    authService.verifyTokenAndGetUser = async (token) => ({ id: 'u_db_err', email: 'db_err@test.com' });
+
+    const originalCreateClient = supabaseLib.createUserScopedClient;
+    supabaseLib.createUserScopedClient = () => ({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({ error: { code: 'PGRST500', message: 'simulated database failure' }, data: null })
+          })
+        })
+      })
+    });
+
+    // Mock console.error
+    const originalConsoleError = console.error;
+    let loggedMessages = [];
+    console.error = (msg) => { loggedMessages.push(msg); };
+
+    const res = await request.get('/api/auth/me').set('Authorization', 'Bearer valid-token');
+
+    // Restore mocks
+    console.error = originalConsoleError;
+    supabaseLib.createUserScopedClient = originalCreateClient;
+
+    assert.strictEqual(res.status, 500);
+    assert.strictEqual(res.body.error.code, 'INTERNAL_ERROR');
+
+    const bodyStr = JSON.stringify(res.body);
+    assert.strictEqual(bodyStr.includes('simulated database failure'), false);
+    assert.strictEqual(bodyStr.includes('valid-token'), false);
+
+    // Verify logs
+    const logsStr = loggedMessages.join(' ');
+    assert.strictEqual(logsStr.includes('simulated database failure'), false);
+    assert.strictEqual(logsStr.includes('valid-token'), false);
+    assert.strictEqual(logsStr.includes('test-key'), false);
+  });
+
+  test.it('Supabase profile lookup returns PGRST116 -> 403 PROFILE_REQUIRED', async () => {
+    authService.verifyTokenAndGetUser = async (token) => ({ id: 'u_116', email: '116@test.com' });
+
+    const originalCreateClient = supabaseLib.createUserScopedClient;
+    supabaseLib.createUserScopedClient = () => ({
+      from: () => ({
+        select: () => ({
+          eq: () => ({
+            single: async () => ({ error: { code: 'PGRST116', message: 'JSON object requested, multiple (or no) rows returned' }, data: null })
+          })
+        })
+      })
+    });
+
+    const res = await request.get('/api/auth/me').set('Authorization', 'Bearer valid-token');
+
+    supabaseLib.createUserScopedClient = originalCreateClient;
+
     assert.strictEqual(res.status, 403);
     assert.strictEqual(res.body.error.code, 'PROFILE_REQUIRED');
   });
