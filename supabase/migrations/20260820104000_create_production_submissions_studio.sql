@@ -1,4 +1,4 @@
-﻿-- Migration: Create production_submissions_studio
+-- Migration: Create production_submissions_studio
 -- Purpose: Represents a Creator's submitted production request whose raw/source content remains in the customer's own cloud storage.
 
 BEGIN;

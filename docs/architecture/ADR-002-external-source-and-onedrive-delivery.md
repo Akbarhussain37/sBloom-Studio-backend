@@ -1,7 +1,7 @@
-﻿# ADR-002: External Source Media and OneDrive Delivery
+# ADR-002: External Source Media and OneDrive Delivery
 
 **Date**: 2026-08-20
-**Status**: Approved (Phase E1 Implementation)
+**Status**: Approved (Phase E1 Design; migration pending application)
 
 ## Context
 sBloom requires a highly scalable media storage and intake solution. In ADR-001, we established that Supabase Storage is not suitable for raw media or large final files, and planned a migration to OneDrive. However, requiring customers to upload massive raw footage into sBloom's OneDrive creates excessive bandwidth costs, ingestion latency, and complexity around resumable uploads directly from the browser.
@@ -34,7 +34,7 @@ Once the production team completes the edits, the **Final Edited Output** will b
 ### Access Attestation vs Verification
 The source_access_attested_at timestamp is written ONLY after the authenticated Creator explicitly confirms in the UI that sharing permissions have been properly configured for their source link.
 - **Attestation does NOT mean sBloom has verified access.** It merely proves the user acknowledged the requirement.
-- Actual access status is represented by the ccess_status field (PENDING_VERIFICATION, ACCESS_CONFIRMED, ACCESS_REQUIRED), which will be updated by the backend/production workflows.
+- Actual access status is represented by the access_status field (PENDING_VERIFICATION, ACCESS_CONFIRMED, ACCESS_REQUIRED), which will be updated by the backend/production workflows.
 
 ### Narrow Service Role Privileges
 The Supabase service_role has privileged RLS-bypass behavior, but it must not be treated as a PostgreSQL superuser for table grants. RLS bypass and SQL table privileges are separate concerns.
