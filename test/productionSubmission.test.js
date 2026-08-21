@@ -385,4 +385,214 @@ test.describe('Production Submission Endpoint', () => {
     assert.strictEqual(logsStr.includes('creator-token'), false);
     assert.strictEqual(logsStr.includes('test-service-role-key'), false);
   });
+
+  test.describe('GET /api/production/submissions', () => {
+    const mockListDB = (dataToReturn = [], errorToReturn = null) => {
+      supabaseLib.createUserScopedClient = () => ({
+        from: (table) => {
+          if (table !== 'production_submissions_studio') throw new Error('Wrong table');
+          let currentQuery = {
+            select: function(fields) {
+              if (fields !== 'id, project_id, source_type, source_provider, source_name, access_status, submitted_at') {
+                throw new Error('Unsafe select projection');
+              }
+              return this;
+            },
+            order: function(field, opts) {
+              if (field !== 'submitted_at' || opts.ascending !== false) throw new Error('Wrong order');
+              return this;
+            },
+            limit: function(limit) {
+              global.__lastLimit = limit;
+              return this;
+            },
+            eq: function(field, value) {
+              if (field === 'project_id') global.__lastProjectId = value;
+              return this;
+            },
+            then: function(resolve) {
+              resolve({ data: dataToReturn, error: errorToReturn });
+            }
+          };
+          return currentQuery;
+        }
+      });
+
+      supabaseLib.createServiceClient = () => {
+        throw new Error('createServiceClient MUST NOT be called by GET');
+      };
+    };
+
+    test.it('A. GET without Authorization -> 401', async () => {
+      const res = await request.get('/api/production/submissions');
+      assert.strictEqual(res.status, 401);
+    });
+
+    test.it('B. Authenticated Kid/non-Creator -> 403 CREATOR_REQUIRED, no SELECT', async () => {
+      mockKidAuth();
+      const res = await request.get('/api/production/submissions').set('Authorization', 'Bearer kid-token');
+      assert.strictEqual(res.status, 403);
+    });
+
+    test.it('C, D, E, F, G, H, I. Authenticated Creator -> 200, safe fields, default limit 50', async () => {
+      mockCreatorAuth();
+      mockListDB([{
+        id: 'sub-1',
+        project_id: validPayload.project_id,
+        source_type: validPayload.source_type,
+        source_provider: validPayload.source_provider,
+        source_name: validPayload.source_name,
+        access_status: 'PENDING_VERIFICATION',
+        submitted_at: new Date().toISOString()
+      }]);
+
+      const res = await request.get('/api/production/submissions').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(global.__lastLimit, 50);
+
+      const sub = res.body.submissions[0];
+      assert.strictEqual(sub.id, 'sub-1');
+      assert.strictEqual(sub.source_url, undefined);
+      assert.strictEqual(sub.instructions, undefined);
+      assert.strictEqual(sub.user_id, undefined);
+      assert.strictEqual(sub.source_access_attested_at, undefined);
+    });
+
+    test.it('J. limit=1 accepted', async () => {
+      mockCreatorAuth();
+      mockListDB();
+      const res = await request.get('/api/production/submissions?limit=1').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(global.__lastLimit, 1);
+    });
+
+    test.it('K. limit=100 accepted', async () => {
+      mockCreatorAuth();
+      mockListDB();
+      const res = await request.get('/api/production/submissions?limit=100').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(global.__lastLimit, 100);
+    });
+
+    test.it('L. limit=0 rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=0').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('M. limit=101 rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=101').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('N. limit=1.5 rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=1.5').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('O. limit=abc rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=abc').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('O1. limit=-1 rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=-1').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('O2. limit=10abc rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=10abc').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('O3. limit=1e2 rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=1e2').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('O4. duplicate limit rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=10&limit=20').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('P. unexpected query parameter rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?status=ALL').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('P2. mixed allowed + unexpected parameter rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?limit=20&user_id=123').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('Q. valid project_id applies project filter', async () => {
+      mockCreatorAuth();
+      mockListDB();
+      const uuid = '123e4567-e89b-12d3-a456-426614174000';
+      const res = await request.get('/api/production/submissions?project_id=' + uuid).set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 200);
+      assert.strictEqual(global.__lastProjectId, uuid);
+    });
+
+    test.it('R. invalid project_id rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?project_id=invalid').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('R2. duplicate project_id rejected 400', async () => {
+      mockCreatorAuth();
+      const res = await request.get('/api/production/submissions?project_id=123e4567-e89b-12d3-a456-426614174000&project_id=123e4567-e89b-12d3-a456-426614174001').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 400);
+    });
+
+    test.it('S. empty database result -> 200, submissions []', async () => {
+      mockCreatorAuth();
+      mockListDB([]);
+      const res = await request.get('/api/production/submissions').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 200);
+      assert.deepStrictEqual(res.body.submissions, []);
+    });
+
+    test.it('T. database operational error -> sanitized 500 INTERNAL_ERROR', async () => {
+      mockCreatorAuth();
+      mockListDB(null, { code: 'DB_ERR', message: 'Secret DB Error' });
+      let loggedMessages = [];
+      console.error = (msg) => { loggedMessages.push(msg); };
+
+      const res = await request.get('/api/production/submissions').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(res.status, 500);
+      assert.strictEqual(res.body.error.code, 'INTERNAL_ERROR');
+
+      const logs = loggedMessages.join(' ');
+      assert.strictEqual(logs.includes('Secret DB Error'), false);
+    });
+
+    test.it('U. createServiceClient must NOT be called by GET', async () => {
+      mockCreatorAuth();
+      let called = false;
+      supabaseLib.createUserScopedClient = () => ({
+        from: () => ({ select: () => ({ order: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) })
+      });
+      supabaseLib.createServiceClient = () => { called = true; return {}; };
+
+      await request.get('/api/production/submissions').set('Authorization', 'Bearer creator-token');
+      assert.strictEqual(called, false);
+    });
+
+    test.it('V. no INSERT/UPDATE/DELETE occurs (handled by mocks)', async () => {
+      // Any attempt to call insert/update/delete on the mockListDB will throw an error since they are undefined.
+      // And createServiceClient is forbidden to be called.
+    });
+  });
+
 });

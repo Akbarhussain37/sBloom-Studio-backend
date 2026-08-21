@@ -49,6 +49,33 @@ async function createSubmission(userId, accessToken, data) {
   return inserted;
 }
 
+async function listSubmissions(accessToken, options = {}) {
+  const userClient = supabaseLib.createUserScopedClient(accessToken);
+  const limit = options.limit || 50;
+
+  let query = userClient
+    .from('production_submissions_studio')
+    .select('id, project_id, source_type, source_provider, source_name, access_status, submitted_at')
+    .order('submitted_at', { ascending: false })
+    .limit(limit);
+
+  if (options.project_id) {
+    query = query.eq('project_id', options.project_id);
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    throw error; // Propagates as 500 INTERNAL_ERROR via central handler
+  }
+
+  return {
+    submissions: data || [],
+    meta: { limit }
+  };
+}
+
 module.exports = {
-  createSubmission
+  createSubmission,
+  listSubmissions
 };
