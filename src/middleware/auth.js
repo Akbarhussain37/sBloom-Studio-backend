@@ -63,7 +63,25 @@ function requireCreator(req, res, next) {
   next();
 }
 
+function requireStaff(req, res, next) {
+  if (!req.auth || !req.auth.profile) {
+    return res.status(401).json({
+      error: { code: 'UNAUTHORIZED', message: 'Authentication required.' }
+    });
+  }
+
+  const role = req.auth.profile.role;
+  if (role !== 'admin' && role !== 'production_staff') {
+    return res.status(403).json({
+      error: { code: 'STAFF_REQUIRED', message: 'Staff access required.' }
+    });
+  }
+
+  next();
+}
+
 module.exports = {
   requireAuth,
-  requireCreator
+  requireCreator,
+  requireStaff
 };

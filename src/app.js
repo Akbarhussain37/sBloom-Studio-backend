@@ -30,10 +30,12 @@ const corsOptions = {
 app.use(cors(corsOptions));
 
 const productionRoutes = require('./routes/production');
+const adminProductionRoutes = require('./routes/adminProduction');
 
 app.use('/api', healthRoutes);
 app.use('/api', authRoutes);
 app.use('/api/production', productionRoutes);
+app.use('/api/admin/production', adminProductionRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
