@@ -34,6 +34,7 @@ router.post('/upload-document', upload.single('file'), async (req, res) => {
   const userEmail = req.body.userEmail || '';
   const userPhone = req.body.userPhone || '';
   const instructions = req.body.instructions || '';
+  const userRole = req.body.userRole || 'creator';
 
   try {
     // 1. Upload to OneDrive
@@ -50,7 +51,8 @@ router.post('/upload-document', upload.single('file'), async (req, res) => {
       user_name: userName,
       user_email: userEmail,
       user_phone: userPhone,
-      instructions: instructions
+      instructions: instructions,
+      user_role: userRole
     };
 
     await storeMetadata(metadata);
