@@ -1,4 +1,10 @@
-node_modules/
 .env
+.env.*
+!.env.example
+
+node_modules/
 temp_uploads/
+
+coverage/
+*.log
 .DS_Store

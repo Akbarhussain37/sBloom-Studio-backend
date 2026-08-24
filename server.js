@@ -1,24 +1,8 @@
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
+const app = require('./src/app');
+const config = require('./src/config');
 
-const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = config.port;
 
-// Middleware
-app.use(cors());
-app.use(express.json());
-
-// Routes
-const uploadRouter = require('./routes/upload');
-app.use('/api', uploadRouter);
-
-// Basic Health Check Route
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'sBloom Studio Backend is running!' });
-});
-
-// Start Server
 app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
 });
