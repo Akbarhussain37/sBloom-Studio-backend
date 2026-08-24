@@ -9,6 +9,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Routes
+const uploadRouter = require('./routes/upload');
+app.use('/api', uploadRouter);
+
 // Basic Health Check Route
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', message: 'sBloom Studio Backend is running!' });
