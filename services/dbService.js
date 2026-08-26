@@ -107,6 +107,9 @@ async function getDocumentById(docId) {
     .single();
 
   if (error) {
+    if (error.code === 'PGRST116') {
+      return null;
+    }
     console.error("Error fetching document:", error);
     throw error;
   }

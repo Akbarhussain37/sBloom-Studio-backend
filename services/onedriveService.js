@@ -141,6 +141,10 @@ async function deleteFromOneDrive(fileId) {
     });
     return true;
   } catch (error) {
+    if (error.response?.data?.error?.code === 'itemNotFound' || error.response?.status === 404) {
+      console.warn('File already deleted or not found in OneDrive.');
+      return true;
+    }
     console.error('Error deleting from OneDrive:', error.response?.data || error.message);
     throw new Error('Failed to delete file from OneDrive');
   }
